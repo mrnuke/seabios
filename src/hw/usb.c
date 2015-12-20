@@ -440,6 +440,17 @@ usb_hub_port_setup(void *data)
     }
     mutex_unlock(&hub->cntl->resetlock);
 
+    // Make sure device is still present (catches some weird USB3 devices)
+    if (hub->cntl->type == USB_TYPE_XHCI && usbdev->speed == USB_HIGHSPEED) {
+        while (!timer_check(hub->detectend))
+            yield();
+        ret = hub->op->detect(hub, port);
+        if (ret <= 0) {
+            hub->op->disconnect(hub, port);
+            goto done;
+        }
+    }
+
     // Configure the device
     int count = configure_usb_device(usbdev);
     usb_free_pipe(usbdev, usbdev->defpipe);
